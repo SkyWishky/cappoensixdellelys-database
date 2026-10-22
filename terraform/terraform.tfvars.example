@@ -1,0 +1,7 @@
+db_name            = "tamagochi"
+db_user            = "tamagochi"
+db_password        = "tamagochi"
+db_port            = 5432
+backend_port       = 8080
+frontend_port      = 80
+pet_decay_interval = "10s"
