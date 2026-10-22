@@ -1,0 +1,60 @@
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: tamagochi-db-coolify
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tamagochi}
+      POSTGRES_USER: ${POSTGRES_USER:-tamagochi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./seed.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tamagochi} -d ${POSTGRES_DB:-tamagochi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    labels:
+      - "coolify.managed=true"
+
+  backend:
+    image: ghcr.io/skywishky/cappoensixdellelys-back:latest
+    container_name: tamagochi-back-coolify
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-tamagochi}
+      DB_USER: ${POSTGRES_USER:-tamagochi}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
+      PET_DECAY_INTERVAL: 10000
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "coolify.managed=true"
+
+  frontend:
+    image: ghcr.io/skywishky/cappoensixdellelys-front:latest
+    container_name: tamagochi-front-coolify
+    restart: unless-stopped
+    environment:
+      PORT: 80
+      BACKEND_URL: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      - "coolify.managed=true"
+
+volumes:
+  db_data:
