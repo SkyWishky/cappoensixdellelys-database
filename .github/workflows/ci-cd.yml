@@ -96,8 +96,8 @@ jobs:
         id: prep
         run: |
           LOWER_IMAGE="${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}"
-          echo "image_name=${LOWER_IMAGE}" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=${LOWER_IMAGE}" >> $GITHUB_ENV
+          printf 'image_name=%s\n' "$LOWER_IMAGE" >> "$GITHUB_OUTPUT"
+          printf 'IMAGE_NAME=%s\n' "$LOWER_IMAGE" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
