@@ -1,26 +1,20 @@
 services:
-  frontend:
-    image: ghcr.io/skywishky/cappoensixdellelys-front:latest
-    container_name: tamagochi-front-coolify
+  database:
+    image: ghcr.io/skywishky/cappoensixdellelys-database:latest
+    container_name: tamagochi-db-coolify
     restart: unless-stopped
-    expose:
-      - "80"
     environment:
-      PORT: 80
-      BACKEND_URL: http://backend:8080
-    depends_on:
-      backend:
-        condition: service_healthy
-    labels:
-      - "coolify.managed=true"
-      - "coolify.port=80"
-      - "coolify.domain=https://tpfinal.tp-devops-6.online"
-      - "traefik.enable=true"
-      - "traefik.http.routers.front.rule=Host(`tpfinal.tp-devops-6.online`)"
-      - "traefik.http.routers.front.entrypoints=websecure"
-      - "traefik.http.routers.front.tls=true"
-      - "traefik.http.routers.front.tls.certresolver=letsencrypt"
-      - "traefik.http.services.front.loadbalancer.server.port=80"
+      POSTGRES_DB: ${POSTGRES_DB:-tamagochi}
+      POSTGRES_USER: ${POSTGRES_USER:-tamagochi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tamagochi} -d ${POSTGRES_DB:-tamagochi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   backend:
     image: ghcr.io/skywishky/cappoensixdellelys-back:latest
@@ -43,27 +37,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    labels:
-      - "coolify.managed=false"
 
-  database:
-    image: ghcr.io/skywishky/cappoensixdellelys-database:latest
-    container_name: tamagochi-db-coolify
+  frontend:
+    image: ghcr.io/skywishky/cappoensixdellelys-front:latest
+    container_name: tamagochi-front-coolify
     restart: unless-stopped
+    ports:
+      - "80"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tamagochi}
-      POSTGRES_USER: ${POSTGRES_USER:-tamagochi}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tamagochi} -d ${POSTGRES_DB:-tamagochi}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    labels:
-      - "coolify.managed=false"
+      PORT: 80
+      BACKEND_URL: http://backend:8080
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   db_data:
