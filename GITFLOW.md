@@ -13,7 +13,7 @@ Ce dépôt respecte la méthodologie standard **Gitflow** pour assurer un cycle 
   release ───┼──────────●─────────────┘
              │          ▲
              │          │ Cut release
-  develop ───●──●───────●──●──────────► (Intégration continue / Staging)
+  develop ───●──●───────●──●──────────► (Intégration continue)
                 ▲       ▲  ▲
      feature ───┘       │  │
                         └──┘
@@ -23,8 +23,8 @@ Ce dépôt respecte la méthodologie standard **Gitflow** pour assurer un cycle 
 
 | Branche | Rôle | Environnement de déploiement | Protection |
 |---|---|---|---|
-| **`main`** | Code stable de production | Coolify Production | Protégée (PR requise, checks CI validés) |
-| **`develop`** | Intégration continue | Coolify Staging | Protégée (Merge via PR uniquement) |
+| **`main`** | Code stable de production | Coolify Production (webhook CI) | À configurer/vérifier dans GitHub |
+| **`develop`** | Intégration continue; publie `dev-latest` | Aucun déploiement Coolify automatique configuré | À configurer/vérifier dans GitHub |
 
 ### 2. Branches Temporaires (Short-lived)
 
@@ -43,7 +43,7 @@ Ce dépôt respecte la méthodologie standard **Gitflow** pour assurer un cycle 
 
 ## 🛡️ Règles de Validation CI/CD
 
-Avant tout merge sur `develop` ou `main`, le pipeline GitHub Actions valide obligatoirement :
-1. ✅ `terraform fmt -check` et `terraform validate`.
+Le pipeline GitHub Actions s'exécute sur les pushes/PR vers `develop` et `main`. Pour rendre ces contrôles obligatoires avant merge, les règles de protection doivent être configurées dans GitHub (état à vérifier auprès d'un administrateur) :
+1. ✅ `terraform -chdir=terraform fmt -check` et `terraform -chdir=terraform validate`.
 2. ✅ Hadolint sur le `Dockerfile` PostgreSQL.
 3. ✅ Construction et publication de l'image Docker sur GHCR (`ghcr.io/skywishky/cappoensixdellelys-database`).
