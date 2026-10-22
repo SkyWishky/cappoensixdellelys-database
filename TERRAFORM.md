@@ -1,87 +1,55 @@
-# 🏗️ Guide d'Utilisation de l'Infrastructure Terraform
+# Guide Terraform
 
-Ce document détaille l'utilisation de l'Infrastructure as Code (IaC) **HashiCorp Terraform** pour provisionner et orchestrer localement la stack complète Tamagotchi via le provider Docker (`kreuzwerker/docker`).
+Ce dossier contient la configuration pour deployer localement la stack avec Terraform et le provider Docker.
 
----
+## Prerequis
 
-## 📋 Prérequis
+- Docker installe et demarre.
+- Terraform installe (version 1.5 ou superieure).
 
-1. **Docker Engine** ou **Docker Desktop** en cours d'exécution.
-2. **Terraform CLI** version 1.5.0 ou supérieure installée :
-   ```bash
-   terraform version
-   ```
+## Fichiers
 
----
+- `main.tf` : Definition du reseau Docker, du volume persistant PostgreSQL et des 3 conteneurs (base de donnees, backend et frontend).
+- `variables.tf` : Variables de configuration (ports, versions des images, identifiants).
+- `outputs.tf` : URLs d'acces generees apres le deploiement.
+- `terraform.tfvars.example` : Exemple de fichier de variables.
 
-## 📁 Architecture des Fichiers Terraform
+## Commandes pour deployer
 
-- `main.tf` :
-  - Configuration du provider `kreuzwerker/docker` (version `~> 3.0.2`).
-  - Déclaration du réseau Docker en mode bridge et du volume persistant PostgreSQL.
-  - Téléchargement des images Docker (base personnalisée avec le seed, backend, frontend) depuis GHCR.
-  - Déclaration des trois conteneurs avec vérifications de santé PostgreSQL et API.
-- `variables.tf` : Images, ports, identifiants et intervalle de decay (en millisecondes).
-- `outputs.tf` : URL frontend/API, URL de santé backend, endpoint et nom de la base.
-- `terraform.tfvars.example` : Modèle de fichier de surcharge des valeurs par défaut.
+Les fichiers `main.tf`, `variables.tf` et `outputs.tf` configurent le réseau Docker, le volume PostgreSQL et les trois conteneurs. L'image PostgreSQL personnalisée publiée sur GHCR contient déjà `seed.sql`; aucun montage du fichier de l'hôte n'est nécessaire.
 
----
+### 1. Fournir le secret
 
-## 🚀 Commandes Usuelles
+Le mot de passe est obligatoire et sensible. Ne l'ajoutez pas à un fichier suivi par Git. Depuis la racine du dépôt, définissez-le dans l'environnement :
 
-### 1. Initialiser le répertoire de travail
-
-Télécharge et installe le provider `kreuzwerker/docker` :
-```bash
-cd terraform
-terraform init
-```
-
-### 2. Valider la syntaxe et la cohérence
-
-```bash
-terraform validate
-terraform fmt -check
-```
-
-### 3. Configurer le secret et prévisualiser (Plan)
-
-Le mot de passe est obligatoire et sensible. Ne l'ajoutez pas à un fichier suivi par Git. Pour un usage local, fournissez-le dans l'environnement courant (ou utilisez un gestionnaire de secrets) :
 ```bash
 # Bash
 export TF_VAR_db_password='<mot-de-passe-local>'
+
 # PowerShell
 $env:TF_VAR_db_password = '<mot-de-passe-local>'
 ```
-Les valeurs non secrètes peuvent être copiées depuis l'exemple : `cp terraform.tfvars.example terraform.tfvars` (depuis le dossier `terraform`).
-Les ports Terraform par défaut sont `5432` (PostgreSQL), `8080` (API) et `4200` (frontend), tous liés à `127.0.0.1`. Avec Docker Compose, seul le frontend est publié sur l'hôte; l'API et PostgreSQL restent internes. `pet_decay_interval` vaut `10000` millisecondes. La base utilise l'image personnalisée publiée sur GHCR, qui contient le script d'initialisation; aucune bind-mount du fichier `seed.sql` de l'hôte n'est nécessaire.
+
+Les valeurs non secrètes peuvent être copiées depuis `terraform/terraform.tfvars.example`.
+
+### 2. Initialiser, valider et planifier
 
 ```bash
+cd terraform
+terraform init
+terraform fmt -check
+terraform validate
 terraform plan
 ```
 
-### 4. Déployer l'infrastructure (Apply)
+### 3. Appliquer ou détruire
 
-Provisionne le réseau, le volume et démarre les trois conteneurs :
 ```bash
-terraform apply -auto-approve
+terraform apply
+# Pour supprimer les conteneurs, le volume et le réseau :
+terraform destroy
 ```
 
-À l'issue de l'exécution, Terraform affiche les sorties suivantes (valeurs par défaut) :
-```text
-Outputs:
+Les ports par défaut PostgreSQL `5432`, API `8080` et frontend `4200` sont liés à `127.0.0.1`. `pet_decay_interval` vaut `10000` millisecondes.
 
-backend_api_url = "http://localhost:8080"
-backend_health_url = "http://localhost:8080/actuator/health"
-database_endpoint = "localhost:5432"
-database_name = "tamagochi"
-frontend_url = "http://localhost:4200"
-```
-L'output ne contient jamais le mot de passe. Le provider Docker enregistre toutefois les variables d'environnement du conteneur dans l'état Terraform : protégez cet état local et ne le partagez pas.
-
-### 5. Détruire l'infrastructure (Destroy)
-
-Arrête et supprime les conteneurs, le volume et le réseau proprement :
-```bash
-terraform destroy -auto-approve
-```
+Les sorties incluent `frontend_url`, `backend_api_url`, `backend_health_url`, `database_endpoint` et `database_name`. Le mot de passe n'est pas affiché, mais le provider Docker stocke les variables du conteneur dans l'état Terraform : protégez cet état et ne le partagez pas.

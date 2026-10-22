@@ -148,14 +148,19 @@ jobs:
       - name: Trigger Coolify Webhook
         env:
           WEBHOOK_URL: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "::warning ::Secret COOLIFY_DEPLOY_WEBHOOK_URL is not set. Add it in Settings > Secrets > Actions to enable automated deployment."
             echo "Deployment was not triggered; configure this secret to enable it."
             exit 1
           fi
-          echo "Triggering Coolify deployment webhook..."
-          STATUS=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --fail "$WEBHOOK_URL") || {
+          echo "Triggering Coolify deployment webhook via POST..."
+          CURL_ARGS=(--silent --show-error --output /dev/null --write-out "%{http_code}" --fail --request POST)
+          if [ -n "$COOLIFY_TOKEN" ]; then
+            CURL_ARGS+=(--header "Authorization: Bearer $COOLIFY_TOKEN")
+          fi
+          STATUS=$(curl "${CURL_ARGS[@]}" "$WEBHOOK_URL") || {
             echo "::error ::Coolify webhook request failed."
             exit 1
           }

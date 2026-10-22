@@ -1,15 +1,14 @@
-# ☁️ Guide de Déploiement sur Coolify (PaaS)
+# Configuration Coolify
 
-Ce document décrit la procédure pas-à-pas pour déployer l'architecture 3-tiers sur l'instance **Coolify** de la promotion :
-- **Instance Coolify** : [https://coolify.twelveparsecs.me/](https://coolify.twelveparsecs.me/)
-- **Groupe 6** : `tp-devops-6.online`
-- **URL Frontend en production** : [https://tpfinal.tp-devops-6.online](https://tpfinal.tp-devops-6.online)
+Ce document resume la configuration du deploiement sur Coolify.
 
----
+## Informations du deploiement
 
-## 🛠️ Méthode 1 : Déploiement via Docker Compose (Recommandée)
+- Serveur Coolify : https://coolify.twelveparsecs.me
+- Domaine du frontend : https://tpfinal.tp-devops-6.online
+- Type de ressource : Docker Compose (Empty Service)
 
-Cette méthode déploie l'ensemble de la stack en une seule ressource unifiée sur Coolify, simplifiant la résolution DNS interne entre conteneurs.
+## Services deployes
 
 ### Étape 1 : Créer une ressource Docker Compose sur Coolify
 1. Connectez-vous sur [https://coolify.twelveparsecs.me/](https://coolify.twelveparsecs.me/).
@@ -47,7 +46,7 @@ Pour la ressource **Docker Compose (stack)** dans Coolify :
 1. Rendez-vous dans ses paramètres > **Webhooks** et copiez son URL **Deploy Webhook**.
 2. Ajoutez la même URL comme secret `COOLIFY_DEPLOY_WEBHOOK_URL` dans chacun des trois dépôts GitHub (front, back et database), sous **Settings > Secrets and variables > Actions**. Les trois workflows déploient cette stack unique; les anciens noms `COOLIFY_BACK_DEPLOY_WEBHOOK_URL` et `COOLIFY_DB_DEPLOY_WEBHOOK_URL` ne sont pas lus.
 3. Les pushes sur `main` et `develop` publient les images correspondantes sous GHCR : `main` alimente `latest`, `develop` alimente `dev-latest`. Seuls les pushes `main` déclenchent le déploiement de production; le Compose Coolify utilise explicitement `latest` et `pull_policy: always` pour récupérer les images publiées.
-4. Sans `COOLIFY_DEPLOY_WEBHOOK_URL`, l'étape de déploiement échoue explicitement au lieu de signaler un déploiement réussi. Un webhook configuré est appelé en GET et toute réponse HTTP en erreur fait échouer l'étape.
+4. Sans `COOLIFY_DEPLOY_WEBHOOK_URL`, l'étape de déploiement échoue explicitement au lieu de signaler un déploiement réussi. Le workflow appelle le webhook en POST; le secret `COOLIFY_API_TOKEN` est facultatif et transmis en Bearer s'il est défini. Toute erreur de requête ou réponse HTTP en erreur fait échouer l'étape.
 
 > **Registre d'images :** les images sont tirées de GHCR. Vérifiez qu'elles sont publiques ou configurez dans Coolify un registre GHCR authentifié disposant d'un droit de lecture des packages.
 
