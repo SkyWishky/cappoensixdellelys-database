@@ -60,8 +60,8 @@ cappoensixdellelys-database/
 ├── terraform/
 │   ├── main.tf                 # Définition des conteneurs, réseau et volume Docker
 │   ├── variables.tf            # Variables d'entrée typées avec descriptions et défauts
-│   ├── outputs.tf              # URLs et statuts de l'infrastructure
-│   └── terraform.tfvars.example# Fichier d'exemple pour la surcharge des variables
+│   ├── outputs.tf              # URLs et endpoint de la base
+│   └── terraform.tfvars.example # Exemple sans secret
 ├── Dockerfile                  # Image custom PostgreSQL 16 Alpine pré-chargée avec seed.sql
 ├── docker-compose.yml          # Orchestration multi-conteneurs pour test local immédiat
 ├── seed.sql                    # Initialisation de la table pet et jeu de données de test
@@ -80,6 +80,9 @@ cappoensixdellelys-database/
 ### Option A : Avec Docker Compose (Recommandé pour tester en 1 commande)
 
 ```bash
+# Copier .env.example vers .env puis remplacer POSTGRES_PASSWORD par un secret local.
+cp .env.example .env
+
 # Lancement de l'ensemble de la stack (Frontend, Backend, Database)
 docker compose up -d
 
@@ -93,7 +96,7 @@ docker compose logs -f
 docker compose down
 ```
 
-L'application est disponible sur [http://localhost:4200](http://localhost:4200) et l'API sur [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health).
+L'application est disponible uniquement sur la machine locale à [http://localhost:4200](http://localhost:4200). L'API reste interne au réseau Compose et est accessible via le proxy frontend.
 
 ---
 
@@ -111,6 +114,8 @@ terraform init
 terraform validate
 
 # Planification des ressources à provisionner
+# Fournir le secret sans l'inscrire dans un fichier versionné :
+# export TF_VAR_db_password='<mot-de-passe-local>'
 terraform plan
 
 # Application et démarrage des conteneurs
@@ -119,6 +124,8 @@ terraform apply -auto-approve
 # Destruction propre des ressources
 terraform destroy -auto-approve
 ```
+
+Avec Terraform, les ports frontend `4200`, API `8080` et PostgreSQL `5432` sont liés à `127.0.0.1`. Avec Compose, seul le frontend est publié sur `127.0.0.1:4200`; l'API et PostgreSQL restent internes au réseau. Le mot de passe PostgreSQL est requis via `TF_VAR_db_password`; protégez l'état Terraform, qui peut contenir les variables de conteneur.
 
 ---
 

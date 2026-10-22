@@ -18,12 +18,11 @@ Ce document détaille l'utilisation de l'Infrastructure as Code (IaC) **HashiCor
 
 - `main.tf` :
   - Configuration du provider `kreuzwerker/docker` (version `~> 3.0.2`).
-  - Déclaration du réseau Docker en mode bridge (`tamagotchi_net`).
-  - Déclaration du volume persistant pour PostgreSQL (`pgdata_volume`).
-  - Téléchargement des images Docker depuis GitHub Container Registry (GHCR).
-  - Déclaration et ordonnancement des trois conteneurs (`cappoensixdellelys-db`, `cappoensixdellelys-back`, `cappoensixdellelys-front`).
-- `variables.tf` : Variables paramétrables (noms des images, tags, ports exposés, identifiants de base de données).
-- `outputs.tf` : Affichage formaté des points d'accès (URLs du frontend, de l'API et de la base de données).
+  - Déclaration du réseau Docker en mode bridge et du volume persistant PostgreSQL.
+  - Téléchargement des images Docker (base personnalisée avec le seed, backend, frontend) depuis GHCR.
+  - Déclaration des trois conteneurs avec vérifications de santé PostgreSQL et API.
+- `variables.tf` : Images, ports, identifiants et intervalle de decay (en millisecondes).
+- `outputs.tf` : URL frontend/API, URL de santé backend, endpoint et nom de la base.
 - `terraform.tfvars.example` : Modèle de fichier de surcharge des valeurs par défaut.
 
 ---
@@ -45,7 +44,17 @@ terraform validate
 terraform fmt -check
 ```
 
-### 3. Prévisualiser les modifications (Plan)
+### 3. Configurer le secret et prévisualiser (Plan)
+
+Le mot de passe est obligatoire et sensible. Ne l'ajoutez pas à un fichier suivi par Git. Pour un usage local, fournissez-le dans l'environnement courant (ou utilisez un gestionnaire de secrets) :
+```bash
+# Bash
+export TF_VAR_db_password='<mot-de-passe-local>'
+# PowerShell
+$env:TF_VAR_db_password = '<mot-de-passe-local>'
+```
+Les valeurs non secrètes peuvent être copiées depuis l'exemple : `cp terraform.tfvars.example terraform.tfvars` (depuis le dossier `terraform`).
+Les ports Terraform par défaut sont `5432` (PostgreSQL), `8080` (API) et `4200` (frontend), tous liés à `127.0.0.1`. Avec Docker Compose, seul le frontend est publié sur l'hôte; l'API et PostgreSQL restent internes. `pet_decay_interval` vaut `10000` millisecondes. La base utilise l'image personnalisée publiée sur GHCR, qui contient le script d'initialisation; aucune bind-mount du fichier `seed.sql` de l'hôte n'est nécessaire.
 
 ```bash
 terraform plan
@@ -58,15 +67,17 @@ Provisionne le réseau, le volume et démarre les trois conteneurs :
 terraform apply -auto-approve
 ```
 
-À l'issue de l'exécution, Terraform affiche le récapitulatif des sorties :
+À l'issue de l'exécution, Terraform affiche les sorties suivantes (valeurs par défaut) :
 ```text
 Outputs:
 
-api_health_url = "http://localhost:8080/actuator/health"
-database_connection_string = "postgresql://tamagochi:tamagochi_secret@localhost:5432/tamagochi"
+backend_api_url = "http://localhost:8080"
+backend_health_url = "http://localhost:8080/actuator/health"
+database_endpoint = "localhost:5432"
+database_name = "tamagochi"
 frontend_url = "http://localhost:4200"
-infrastructure_status = "Tamagotchi 3-tier stack successfully provisioned with Terraform"
 ```
+L'output ne contient jamais le mot de passe. Le provider Docker enregistre toutefois les variables d'environnement du conteneur dans l'état Terraform : protégez cet état local et ne le partagez pas.
 
 ### 5. Détruire l'infrastructure (Destroy)
 
