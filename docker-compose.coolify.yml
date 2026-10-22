@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:16-alpine
+    image: ghcr.io/skywishky/cappoensixdellelys-database:latest
     container_name: tamagochi-db-coolify
     restart: unless-stopped
     environment:
@@ -9,15 +9,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./seed.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tamagochi} -d ${POSTGRES_DB:-tamagochi}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
-    labels:
-      - "coolify.managed=true"
 
   backend:
     image: ghcr.io/skywishky/cappoensixdellelys-back:latest
@@ -40,8 +37,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    labels:
-      - "coolify.managed=true"
 
   frontend:
     image: ghcr.io/skywishky/cappoensixdellelys-front:latest
@@ -53,8 +48,14 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    labels:
-      - "coolify.managed=true"
+    networks:
+      - default
+      - coolify
 
 volumes:
   db_data:
+
+networks:
+  default:
+  coolify:
+    external: true
