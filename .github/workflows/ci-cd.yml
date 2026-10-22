@@ -62,11 +62,31 @@ jobs:
           ignore: DL3018,DL3008
 
   # =========================================================================
-  # 3. Docker Build & Push to GitHub Container Registry (GHCR)
+  # 3. Security Vulnerability Scan (Trivy)
+  # =========================================================================
+  security-scan:
+    name: 🛡️ Security Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scan repository dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  # =========================================================================
+  # 4. Docker Build & Push to GitHub Container Registry (GHCR)
   # =========================================================================
   build-and-push:
     name: 📦 Build & Push Database Docker Image (GHCR)
-    needs: [terraform-validate, docker-lint]
+    needs: [terraform-validate, docker-lint, security-scan]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -75,9 +95,9 @@ jobs:
       - name: Compute lowercase image name
         id: prep
         run: |
-          LOWER_IMAGE="${{ env.REGISTRY }}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          echo "image_name=${LOWER_IMAGE}" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=${LOWER_IMAGE}" >> $GITHUB_ENV
+          LOWER_IMAGE="${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}"
+          printf 'image_name=%s\n' "$LOWER_IMAGE" >> "$GITHUB_OUTPUT"
+          printf 'IMAGE_NAME=%s\n' "$LOWER_IMAGE" >> "$GITHUB_ENV"
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -117,12 +137,12 @@ jobs:
           cache-to: type=gha,mode=max
 
   # =========================================================================
-  # 4. Continuous Deployment to Coolify
+  # 5. Continuous Deployment to Coolify
   # =========================================================================
   deploy-coolify:
     name: 🚀 Deploy to Coolify
     needs: [build-and-push]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify Webhook
@@ -132,14 +152,18 @@ jobs:
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
             echo "::warning ::Secret COOLIFY_DEPLOY_WEBHOOK_URL is not set. Add it in Settings > Secrets > Actions to enable automated deployment."
-            exit 0
+            echo "Deployment was not triggered; configure this secret to enable it."
+            exit 1
           fi
           echo "Triggering Coolify deployment webhook via POST..."
+          CURL_ARGS=(--silent --show-error --output /dev/null --write-out "%{http_code}" --fail --request POST)
           if [ -n "$COOLIFY_TOKEN" ]; then
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" -H "Authorization: Bearer $COOLIFY_TOKEN")
-          else
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL")
+            CURL_ARGS+=(--header "Authorization: Bearer $COOLIFY_TOKEN")
           fi
+          STATUS=$(curl "${CURL_ARGS[@]}" "$WEBHOOK_URL") || {
+            echo "::error ::Coolify webhook request failed."
+            exit 1
+          }
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
             echo "✅ Coolify deployment webhook triggered successfully (HTTP $STATUS)."
           else

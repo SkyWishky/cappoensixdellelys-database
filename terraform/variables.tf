@@ -13,7 +13,6 @@ variable "db_user" {
 variable "db_password" {
   type        = string
   description = "PostgreSQL database password"
-  default     = "tamagochi"
   sensitive   = true
 }
 
@@ -32,13 +31,19 @@ variable "backend_port" {
 variable "frontend_port" {
   type        = number
   description = "Exposed port for Angular frontend"
-  default     = 80
+  default     = 4200
 }
 
 variable "pet_decay_interval" {
+  type        = number
+  description = "Pet decay interval in milliseconds"
+  default     = 10000
+}
+
+variable "database_image" {
   type        = string
-  description = "Interval for pet decay status updates"
-  default     = "10s"
+  description = "Docker image for PostgreSQL with the schema and seed data"
+  default     = "ghcr.io/skywishky/cappoensixdellelys-database:latest"
 }
 
 variable "backend_image" {

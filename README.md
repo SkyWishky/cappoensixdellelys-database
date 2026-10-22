@@ -15,37 +15,41 @@ URL en production : https://tpfinal.tp-devops-6.online
 
 ## Lancer en local avec Docker Compose
 
-Pour lancer l'application en local (build la base avec son seed et telecharge le frontend et le backend depuis le registre) :
+Copiez `.env.example` vers `.env`, remplacez `POSTGRES_PASSWORD` par un secret local, puis lancez la stack :
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-Pour arreter les conteneurs :
+L'application est disponible uniquement sur la machine locale à [http://localhost:4200](http://localhost:4200). L'API et PostgreSQL restent internes au réseau Compose; l'API est accessible via le proxy frontend. Pour arrêter les conteneurs sans supprimer les données :
+
 ```bash
 docker compose down
 ```
 
-## Utilisation de Terraform
+## Utiliser Terraform
 
-Un guide simple est disponible dans `TERRAFORM.md`.
-Pour lancer avec Terraform :
+Consultez le guide complet [TERRAFORM.md](TERRAFORM.md). Le mot de passe doit être fourni hors des fichiers versionnés :
+
 ```bash
+export TF_VAR_db_password='<mot-de-passe-local>'
 cd terraform
 terraform init
+terraform fmt -check
+terraform validate
+terraform plan
 terraform apply
 ```
 
-## Pipeline CI/CD (GitHub Actions)
+Terraform lie les ports frontend `4200`, API `8080` et PostgreSQL `5432` à `127.0.0.1`; Compose ne publie que le frontend sur `127.0.0.1:4200`. L'état Terraform peut contenir des variables sensibles : protégez-le et ne le partagez pas. Pour supprimer l'infrastructure, exécutez `terraform destroy`.
 
-A chaque push sur `main` et `develop`, le pipeline execute :
-1. Verification du format et validation des fichiers Terraform (`terraform fmt` et `terraform validate`).
-2. Verification du Dockerfile avec Hadolint.
-3. Construction et publication de l'image PostgreSQL sur GitHub Container Registry (ghcr.io).
-4. Declenchement du webhook de deploiement automatique sur Coolify.
+## CI/CD et Gitflow
 
-## Liens des depots du projet
+Le workflow `.github/workflows/ci-cd.yml` valide Terraform, contrôle le Dockerfile avec Hadolint, scanne les dépendances avec Trivy et publie l'image sur GHCR. `main` publie `latest` et déclenche le webhook Coolify; `develop` publie `dev-latest` sans déployer la production. Consultez [GITFLOW.md](GITFLOW.md) pour la stratégie de branches.
+
+## Dépôts du projet
 
 - Frontend : https://github.com/SkyWishky/cappoensixdellelys-front
 - Backend : https://github.com/SkyWishky/cappoensixdellelys-back
-- Database et Infra : https://github.com/SkyWishky/cappoensixdellelys-database
+- Base de données et infrastructure : https://github.com/SkyWishky/cappoensixdellelys-database

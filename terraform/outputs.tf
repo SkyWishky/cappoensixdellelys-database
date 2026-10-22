@@ -17,3 +17,8 @@ output "database_endpoint" {
   description = "PostgreSQL local connection endpoint"
   value       = "localhost:${var.db_port}"
 }
+
+output "database_name" {
+  description = "PostgreSQL database name"
+  value       = var.db_name
+}

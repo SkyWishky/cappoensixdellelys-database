@@ -27,8 +27,8 @@ resource "docker_volume" "db_data" {
 # ==========================================
 # Docker Images
 # ==========================================
-resource "docker_image" "postgres" {
-  name         = "postgres:16-alpine"
+resource "docker_image" "database" {
+  name         = var.database_image
   keep_locally = true
 }
 
@@ -48,7 +48,7 @@ resource "docker_image" "frontend" {
 # 1. PostgreSQL Database
 resource "docker_container" "database" {
   name  = "tamagochi-db-tf"
-  image = docker_image.postgres.image_id
+  image = docker_image.database.image_id
 
   env = [
     "POSTGRES_DB=${var.db_name}",
@@ -61,15 +61,10 @@ resource "docker_container" "database" {
     container_path = "/var/lib/postgresql/data"
   }
 
-  volumes {
-    host_path      = abspath("${path.module}/../seed.sql")
-    container_path = "/docker-entrypoint-initdb.d/01-seed.sql"
-    read_only      = true
-  }
-
   ports {
     internal = 5432
     external = var.db_port
+    ip       = "127.0.0.1"
   }
 
   networks_advanced {
@@ -78,6 +73,16 @@ resource "docker_container" "database" {
   }
 
   restart = "unless-stopped"
+
+  healthcheck {
+    test         = ["CMD-SHELL", "pg_isready -U ${var.db_user} -d ${var.db_name}"]
+    interval     = "5s"
+    timeout      = "5s"
+    retries      = 5
+    start_period = "10s"
+  }
+  wait         = true
+  wait_timeout = 60
 }
 
 # 2. Spring Boot Backend
@@ -98,6 +103,7 @@ resource "docker_container" "backend" {
   ports {
     internal = 8080
     external = var.backend_port
+    ip       = "127.0.0.1"
   }
 
   networks_advanced {
@@ -110,6 +116,16 @@ resource "docker_container" "backend" {
   ]
 
   restart = "unless-stopped"
+
+  healthcheck {
+    test         = ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+    interval     = "10s"
+    timeout      = "5s"
+    retries      = 5
+    start_period = "30s"
+  }
+  wait         = true
+  wait_timeout = 90
 }
 
 # 3. Angular Frontend (Nginx reverse proxy)
@@ -122,8 +138,9 @@ resource "docker_container" "frontend" {
   ]
 
   ports {
-    internal = 80
+    internal = 8080
     external = var.frontend_port
+    ip       = "127.0.0.1"
   }
 
   networks_advanced {

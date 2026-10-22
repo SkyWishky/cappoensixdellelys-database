@@ -1,7 +1,7 @@
 db_name            = "tamagochi"
 db_user            = "tamagochi"
-db_password        = "tamagochi"
+# Supply a local-only secret via TF_VAR_db_password instead of committing it here.
 db_port            = 5432
 backend_port       = 8080
-frontend_port      = 80
-pet_decay_interval = "10s"
+frontend_port      = 4200
+pet_decay_interval = 10000

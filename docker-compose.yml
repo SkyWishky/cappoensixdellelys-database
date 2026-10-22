@@ -1,17 +1,17 @@
 services:
   database:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tamagochi-database:local
     container_name: tamagochi-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tamagochi}
       POSTGRES_USER: ${POSTGRES_USER:-tamagochi}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./seed.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
-    ports:
-      - "5432:5432"
     networks:
       - tamagochi-network
     healthcheck:
@@ -31,10 +31,8 @@ services:
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-tamagochi}
       DB_USER: ${POSTGRES_USER:-tamagochi}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-tamagochi_secret}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PET_DECAY_INTERVAL: 10000
-    ports:
-      - "8080:8080"
     depends_on:
       database:
         condition: service_healthy
@@ -52,10 +50,10 @@ services:
     container_name: tamagochi-front
     restart: unless-stopped
     environment:
-      PORT: 80
+      PORT: 8080
       BACKEND_URL: http://backend:8080
     ports:
-      - "${FRONT_PORT:-4200}:80"
+      - "127.0.0.1:${FRONT_PORT:-4200}:8080"
     depends_on:
       backend:
         condition: service_healthy
