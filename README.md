@@ -28,6 +28,32 @@ L'application est disponible uniquement sur la machine locale à [http://localho
 docker compose down
 ```
 
+### Fonctionnement des conteneurs de la stack Compose
+
+Le fichier `docker-compose.yml` orchestre trois conteneurs relies par un reseau prive et un volume persistant :
+
+1. Service `database` (PostgreSQL 16 Alpine) :
+- Role : Stockage relationnel de l'etat des animaux virtuels.
+- Persistance : Les donnees sont ecrites dans le volume nomme `db_data` monte sur `/var/lib/postgresql/data`. Les donnees restent conservees meme lors de l'arret des conteneurs.
+- Initialisation : Le script `seed.sql` est monte dans `/docker-entrypoint-initdb.d/01-seed.sql` et s'execute automatiquement au premier lancement pour creer les tables et injecter les animaux de depart.
+- Sonde de disponibilite : Commande `pg_isready` toutes les 5 secondes pour certifier que PostgreSQL accepte les connexions avant que le backend ne tente de s'y connecter.
+
+2. Service `backend` (Spring Boot 21 / Java 21) :
+- Role : API REST fournissant la logique metier et la simulation d'evolution temporelle des animaux.
+- Connexion : Rejoint la base directement via le nom d'hote `database` sur le port 5432 du reseau Docker interne.
+- Ordonnancement : La directive `depends_on` avec `condition: service_healthy` empeche Spring Boot de demarrer tant que PostgreSQL n'a pas valide sa propre sonde de sante.
+- Sonde de disponibilite : Interroge `/actuator/health` toutes les 10 secondes pour confirmer le statut operationnel du service.
+
+3. Service `frontend` (Angular 22 / Nginx Alpine) :
+- Role : Interface utilisateur web pour interagir avec les animaux (nourrir, jouer, consulter l'etat).
+- Reverse proxy : Nginx sert les fichiers compiles Angular et relaie les requetes `/api/*` vers `http://backend:8080`. L'URL cible est injectee dynamiquement au demarrage via la variable `BACKEND_URL` sans recompiler le code.
+- Ordonnancement : Attend que le backend soit declare en bonne sante avant d'ouvrir le service web.
+- Exposition : Publie sur le port local 4200 (ou 80 selon le compose utilise).
+
+4. Reseau et Volume partages :
+- Reseau `tamagochi-network` : Reseau virtuel bridge isole. Il permet aux conteneurs de resoudre leurs noms mutuels par DNS interne (`database`, `backend`, `frontend`) sans exposer les ports sensibles directement sur la machine hote.
+- Volume `db_data` : Stockage persistant independant du cycle de vie des conteneurs.
+
 ## Utiliser Terraform
 
 Consultez le guide complet [TERRAFORM.md](TERRAFORM.md). Le mot de passe doit être fourni hors des fichiers versionnés :
